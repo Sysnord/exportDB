@@ -27,7 +27,7 @@ prompt APPLICATION 101 - DEPLOY
 -- Application Export:
 --   Application:     101
 --   Name:            DEPLOY
---   Date and Time:   01:46 Tuesday June 30, 2020
+--   Date and Time:   01:23 Wednesday July 1, 2020
 --   Exported By:     ADMIN
 --   Flashback:       0
 --   Export Type:     Application Export
@@ -37,8 +37,8 @@ prompt APPLICATION 101 - DEPLOY
 
 -- Application Statistics:
 --   Pages:                      3
---     Items:                    6
---     Processes:                4
+--     Items:                    7
+--     Processes:                6
 --     Regions:                  9
 --     Buttons:                  3
 --     Dynamic Actions:          2
@@ -111,7 +111,7 @@ wwv_flow_api.create_flow(
 ,p_substitution_string_01=>'APP_NAME'
 ,p_substitution_value_01=>'DEPLOY'
 ,p_last_updated_by=>'ADMIN'
-,p_last_upd_yyyymmddhh24miss=>'20200630014120'
+,p_last_upd_yyyymmddhh24miss=>'20200701012245'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>3
 ,p_ui_type_name => null
@@ -10105,7 +10105,7 @@ wwv_flow_api.create_page(
 'apex.region("all_rpt").widget().interactiveGrid("setSelectedRecords", []);'))
 ,p_page_template_options=>'#DEFAULT#'
 ,p_last_updated_by=>'ADMIN'
-,p_last_upd_yyyymmddhh24miss=>'20200630014120'
+,p_last_upd_yyyymmddhh24miss=>'20200701012245'
 );
 wwv_flow_api.create_page_plug(
  p_id=>wwv_flow_api.id(5126433841592539)
@@ -10938,6 +10938,16 @@ wwv_flow_api.create_page_item(
 ,p_attribute_05=>'N'
 ,p_attribute_07=>'NONE'
 );
+wwv_flow_api.create_page_item(
+ p_id=>wwv_flow_api.id(5724886667391336)
+,p_name=>'P1_PATH'
+,p_item_sequence=>60
+,p_item_plug_id=>wwv_flow_api.id(5126433841592539)
+,p_source=>'E:\WORK\GIT\sun\DB'
+,p_source_type=>'STATIC'
+,p_display_as=>'NATIVE_HIDDEN'
+,p_attribute_01=>'Y'
+);
 wwv_flow_api.create_page_da_event(
  p_id=>wwv_flow_api.id(5723811870391326)
 ,p_name=>'SAVE BUTTON PRESS'
@@ -10963,8 +10973,47 @@ wwv_flow_api.create_page_da_action(
 '',
 'for (idx = 0; idx < selectedRecords.length; idx++) {',
 '    record = model.getRecord(selectedRecords[idx][0]);',
+'    apex.server.process("ADD_COLLECTION"',
+'   , {x01 : record[0],',
+'      x02 : record[1],',
+'     },{async: false}',
+' ).done(function(pData) {});',
 '    console.log(record[0]+'' ''+record[1]);',
 '}'))
+);
+wwv_flow_api.create_page_da_action(
+ p_id=>wwv_flow_api.id(5725184292391339)
+,p_event_id=>wwv_flow_api.id(5723811870391326)
+,p_event_result=>'TRUE'
+,p_action_sequence=>20
+,p_execute_on_page_init=>'N'
+,p_action=>'NATIVE_EXECUTE_PLSQL_CODE'
+,p_attribute_01=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'declare',
+' l_collection varchar2(200):=''COL_OBJ'';',
+' l_path  varchar2(200);',
+' l_sql varchar2(1000);',
+'begin',
+' begin',
+'  select ad.DIRECTORY_PATH into l_path from all_directories ad where ad.DIRECTORY_PATH = :P1_PATH;',
+'  exception when no_data_found then',
+'    l_sql:= ''CREATE DIRECTORY Main_Export_Dir as ''''''||:P1_PATH||'''''''';',
+'    execute immediate l_sql;',
+' end;',
+' ',
+' for x in (',
+'   select distinct c001,',
+'                   c002,',
+'                   c003',
+'     from APEX_collections',
+'    WHERE collection_name = ''COL_OBJ'') loop',
+'    if x.c002=''PACKAGE'' then',
+'      null;',
+'    end if;',
+'  end loop;',
+'end;'))
+,p_stop_execution_on_error=>'Y'
+,p_wait_for_result=>'Y'
 );
 wwv_flow_api.create_page_da_event(
  p_id=>wwv_flow_api.id(5724587754391333)
@@ -10983,6 +11032,54 @@ wwv_flow_api.create_page_da_action(
 ,p_execute_on_page_init=>'N'
 ,p_action=>'NATIVE_SUBMIT_PAGE'
 ,p_attribute_02=>'Y'
+);
+wwv_flow_api.create_page_process(
+ p_id=>wwv_flow_api.id(5725025350391338)
+,p_process_sequence=>10
+,p_process_point=>'BEFORE_BOX_BODY'
+,p_process_type=>'NATIVE_PLSQL'
+,p_process_name=>'truncate collection'
+,p_process_sql_clob=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'declare',
+'    l_exists boolean;',
+'Begin',
+'    l_exists := APEX_COLLECTION.COLLECTION_EXISTS (p_collection_name => ''COL_OBJ'');',
+'    if l_exists then ',
+'       APEX_COLLECTION.TRUNCATE_COLLECTION( p_collection_name => ''COL_OBJ'');',
+'    end if;',
+'End;'))
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+);
+wwv_flow_api.create_page_process(
+ p_id=>wwv_flow_api.id(5724960491391337)
+,p_process_sequence=>10
+,p_process_point=>'ON_DEMAND'
+,p_process_type=>'NATIVE_PLSQL'
+,p_process_name=>'ADD_COLLECTION'
+,p_process_sql_clob=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'declare',
+' l_name_obj varchar2(100):=APEX_APPLICATION.g_x01;',
+' l_type  varchar2(100):=APEX_APPLICATION.g_x02;',
+' l_exists boolean;',
+'Begin',
+' l_exists := APEX_COLLECTION.COLLECTION_EXISTS (p_collection_name => ''COL_OBJ'');',
+' if not l_exists then ',
+'    APEX_COLLECTION.CREATE_COLLECTION( p_collection_name => ''COL_OBJ'');',
+' end if;',
+' APEX_COLLECTION.ADD_MEMBER(',
+'        p_collection_name => ''COL_OBJ'',',
+'        p_c001            => l_name_obj,',
+'        p_c002            => l_type,',
+'        p_c003            => :P1_SCHEMA);',
+' apex_json.open_object;  ',
+' apex_json.write(''success'', true);  ',
+' apex_json.close_object; ',
+' exception when others then ',
+'   pck_log.p_ins(p_va1 => sqlerrm);',
+'end;',
+'',
+''))
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
 );
 end;
 /
